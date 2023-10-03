@@ -1,0 +1,114 @@
+{
+  "name": "tomcat_thread_pool_exhaustion",
+  "description": "When too many requests are sent to a Tomcat server, the thread pools that handle these requests can run out of available threads. This means that incoming requests will not be processed, leading to service degradation or even a complete outage. This incident type is critical for web applications that rely on Tomcat as their application server.",
+  "params": [
+    {
+      "name": "TOMCAT_PID",
+      "value": ""
+    },
+    {
+      "name": "BLOCKED_THREAD_ID",
+      "value": ""
+    },
+    {
+      "name": "TOMCAT_HOME",
+      "value": ""
+    },
+    {
+      "name": "PATH_TO_TOMCAT",
+      "value": ""
+    },
+    {
+      "name": "HOST_NAME",
+      "value": ""
+    },
+    {
+      "name": "K8S_CLUSTER_NAME",
+      "value": ""
+    },
+    {
+      "name": "NAMESPACE",
+      "value": ""
+    }
+  ],
+  "cells": [
+    {
+      "name": "cell_1",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Tomcat thread pool exhaustion.\nWhen too many requests are sent to a Tomcat server, the thread pools that handle these requests can run out of available threads. This means that incoming requests will not be processed, leading to service degradation or even a complete outage. This incident type is critical for web applications that rely on Tomcat as their application server."
+    },
+    {
+      "name": "cell_2",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Check the number of available threads in the thread pool"
+    },
+    {
+      "name": "cell_3",
+      "type": "OP_LANG",
+      "enabled": true,
+      "content": "(host | host_name=$HOST_NAME) union (pod | k8s_cluster_name=$K8S_CLUSTER_NAME | namespace=$NAMESPACE) | `sudo ${TOMCAT_HOME}/bin/catalina.sh status | grep \"http-nio-8080\" | awk '{print $7}'`"
+    },
+    {
+      "name": "cell_4",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Check the number of threads currently in use by Tomcat"
+    },
+    {
+      "name": "cell_5",
+      "type": "OP_LANG",
+      "enabled": true,
+      "content": "(host | host_name=$HOST_NAME) union (pod | k8s_cluster_name=$K8S_CLUSTER_NAME | namespace=$NAMESPACE) | `sudo lsof -p $(sudo lsof -i:8080 -t) | awk '{print $9}' | sort | uniq -c | sort -rn`"
+    },
+    {
+      "name": "cell_6",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Check the thread dump of the JVM to identify the root cause of the thread pool exhaustion"
+    },
+    {
+      "name": "cell_7",
+      "type": "OP_LANG",
+      "enabled": true,
+      "content": "(host | host_name=$HOST_NAME) union (pod | k8s_cluster_name=$K8S_CLUSTER_NAME | namespace=$NAMESPACE) | `sudo jstack ${TOMCAT_PID} | grep \"java.util.concurrent.ThreadPoolExecutor\" -A 20`"
+    },
+    {
+      "name": "cell_8",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Check the number of threads blocked by a particular thread"
+    },
+    {
+      "name": "cell_9",
+      "type": "OP_LANG",
+      "enabled": true,
+      "content": "(host | host_name=$HOST_NAME) union (pod | k8s_cluster_name=$K8S_CLUSTER_NAME | namespace=$NAMESPACE) | `sudo jstack ${TOMCAT_PID} | grep \"${BLOCKED_THREAD_ID}\" -A 20`"
+    },
+    {
+      "name": "cell_10",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Check the overall thread usage and status of the JVM"
+    },
+    {
+      "name": "cell_11",
+      "type": "OP_LANG",
+      "enabled": true,
+      "content": "(host | host_name=$HOST_NAME) union (pod | k8s_cluster_name=$K8S_CLUSTER_NAME | namespace=$NAMESPACE) | `sudo jstat -gcutil ${TOMCAT_PID} 1000 5`"
+    },
+    {
+      "name": "cell_12",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Tune thread pools - Adjust the thread pool size and configuration to match the workload and resources available."
+    },
+    {
+      "name": "cell_13",
+      "type": "OP_LANG",
+      "enabled": true,
+      "content": "host | host_name=$HOST_NAME | invoke_tomcat_thread_update($PATH_TO_TOMCAT)"
+    }
+  ]
+}
